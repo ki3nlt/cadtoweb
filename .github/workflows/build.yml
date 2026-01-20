@@ -1,0 +1,33 @@
+name: Build Windows EXE
+
+on:
+  push:
+    branches: [ "main" ]
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.9'
+        architecture: 'x64'
+
+    - name: Install dependencies
+      run: |
+        pip install -r requirements.txt
+        pip install pyinstaller
+
+    - name: Build EXE
+      # Lệnh build: Gom code + template vào 1 file EXE duy nhất
+      run: pyinstaller --onefile --clean --add-data "templates;templates" --name PentestTargetApp app.py
+
+    - name: Upload Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: PentestTargetApp-EXE
+        path: dist/PentestTargetApp.exe
