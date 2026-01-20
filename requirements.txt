@@ -1,0 +1,6 @@
+flask
+ezdxf
+geojson
+pyproj
+werkzeug
+pyopenssl
