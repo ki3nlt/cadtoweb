@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Web GIS Viewer</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        body { margin: 0; padding: 0; font-family: Arial, sans-serif; }
+        #map { height: 100vh; width: 100%; }
+        #controls {
+            position: absolute; top: 20px; right: 20px;
+            background: white; padding: 20px; border-radius: 8px;
+            box-shadow: 0 0 15px rgba(0,0,0,0.2); z-index: 1000; width: 300px;
+        }
+        .alert { padding: 10px; margin-top: 10px; border-radius: 4px; display: none; font-size: 14px;}
+        .alert-warning { background-color: #fff3cd; color: #856404; border: 1px solid #ffeeba; }
+        .alert-success { background-color: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        button { width: 100%; padding: 10px; background: #007bff; color: white; border: none; cursor: pointer; }
+        button:hover { background: #0056b3; }
+    </style>
+</head>
+<body>
+
+    <div id="controls">
+        <h3>Upload CAD (DWG/DXF)</h3>
+        <input type="file" id="fileInput" accept=".dxf,.dwg">
+        <button onclick="uploadCAD()">Xem trên bản đồ</button>
+
+        <div id="msgBox" class="alert"></div>
+    </div>
+
+    <div id="map"></div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        var map = L.map('map').setView([10.7769, 106.7009], 12);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: 'OpenStreetMap'
+        }).addTo(map);
+
+        var cadLayer = null;
+
+        async function uploadCAD() {
+            var fileInput = document.getElementById('fileInput');
+            var msgBox = document.getElementById('msgBox');
+
+            msgBox.style.display = 'none';
+
+            if (fileInput.files.length === 0) { alert("Chưa chọn file"); return; }
+
+            var formData = new FormData();
+            formData.append('file', fileInput.files[0]);
+
+            try {
+                msgBox.className = 'alert alert-success';
+                msgBox.innerText = "Đang xử lý...";
+                msgBox.style.display = 'block';
+
+                const response = await fetch('/upload', { method: 'POST', body: formData });
+                const data = await response.json();
+
+                if (!response.ok) throw new Error(data.error || 'Lỗi server');
+
+                // Xử lý cảnh báo từ server
+                if (!data.isValid) {
+                    msgBox.className = 'alert alert-warning';
+                    msgBox.innerText = "⚠️ CẢNH BÁO: " + data.message;
+                } else {
+                    msgBox.innerText = "✅ " + data.message;
+                }
+
+                if (cadLayer) map.removeLayer(cadLayer);
+
+                // Vì server đã trả về Lat/Lon chuẩn, ta add thẳng vào Leaflet
+                cadLayer = L.geoJSON(data.geojson, {
+                    style: { color: data.isValid ? "blue" : "red", weight: 2 }
+                }).addTo(map);
+
+                map.fitBounds(cadLayer.getBounds());
+
+            } catch (error) {
+                console.error(error);
+                msgBox.className = 'alert alert-warning'; // Dùng màu warning cho lỗi
+                msgBox.style.backgroundColor = '#f8d7da';
+                msgBox.style.color = '#721c24';
+                msgBox.innerText = "Lỗi: " + error.message;
+            }
+        }
+    </script>
+</body>
+</html>
